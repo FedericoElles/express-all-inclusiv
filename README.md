@@ -93,7 +93,7 @@ This code would replace in production inside index.html
 
 and
 
-`<link href="style.css">` with `<style>/* Minified CSS code*/</style>`
+`<link href="style.css" rel="stylesheet">` with `<style>/* Minified CSS code*/</style>`
 
 ### Bonus features ###
 Files are served differently on localhost and in production. In production
