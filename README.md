@@ -113,10 +113,16 @@ You can emulate production on localhost by added the `?force=true` parameter to 
 ## Auto-Reload
 Since we are so lazy, auto-reload is build in for html files.
 
+To enable auto-reload add as last statement in your Express app:
+
 	if (localhost){
 	  var port = app.get('port') + 1;
 	  sostatic.watch();
 	}
+
+Add to every html file to be watched:
+	
+	<!--reload-->
 
 By default, all files inside the registered folders are watched. You can register files via `sostatic.addFolder`. 
 You can specify the watched folders by passing an array of folders.
