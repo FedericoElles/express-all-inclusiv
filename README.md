@@ -10,7 +10,7 @@ Install module
 
 In app:
 
-	var static = require('static');
+	var static = require('express-all-inclusive');
 
 ## Folders
 
