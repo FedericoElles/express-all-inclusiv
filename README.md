@@ -6,11 +6,11 @@ Express Middleware for Mobile Apps to be used by very lazy people
 
 Install module
 
-	npm install sostatic --save
+	npm install express-all-inclusive --save
 
 In app:
 
-	var sostatic = require('sostatic');
+	var static = require('static');
 
 ## Folders
 
@@ -24,11 +24,11 @@ project, each inside a single folder, e.g.
 Registering a folder to serve its content:
 
 
-	sostatic.addFolder('www', { //options object
+	static.addFolder('www', { //options object
 	  version: 'v1.0.0'
 	});
 
-The folder is now available via `sostatic.www`
+The folder is now available via `static.www`
 
 ### Options ###
 
@@ -49,7 +49,7 @@ So far there is build in support for `html`, `js`, `css` and `appcache` files.
 
 ### Simple serve ###
 
-	app.get('/app.js', sostatic.static.serve());
+	app.get('/app.js', static.static.serve());
 
 This will server the `/static/app.js` file.
 
@@ -60,7 +60,7 @@ If you want to server files only in special cases, pass req and res parameters o
 	  if (false){
 	    res.send('');
 	  } else {
-	    sostatic.static.serve(req, res, {});
+	    static.static.serve(req, res, {});
 	  }
 	});
 
@@ -71,19 +71,19 @@ If you want to server files only in special cases, pass req and res parameters o
 
 By default
 
-	app.get('/test', sostatic.static.serve());
+	app.get('/test', static.static.serve());
 
 would serve the text.html file. You can change this behaviour by either passing the fileName directly or as object property.
 
-	app.get('/test', sostatic.static.serve('testPage.html'));
+	app.get('/test', static.static.serve('testPage.html'));
 	//equals
-	app.get('/test', sostatic.static.serve({fileName:'testPage.html'}))
+	app.get('/test', static.static.serve({fileName:'testPage.html'}))
 
 **include**
 
 For mobile applications it is nice to save some requests, there for you can merge files.
 
-    sostatic.static.serve(req, res, {
+    static.static.serve(req, res, {
       include: ['app.js', 'style.css']
     });
 
@@ -117,14 +117,14 @@ To enable auto-reload add as last statement in your Express app:
 
 	if (localhost){
 	  var port = app.get('port') + 1;
-	  sostatic.watch();
+	  static.watch();
 	}
 
 Add to every html file to be watched:
 	
 	<!--reload-->
 
-By default, all files inside the registered folders are watched. You can register files via `sostatic.addFolder`. 
+By default, all files inside the registered folders are watched. You can register files via `static.addFolder`. 
 You can specify the watched folders by passing an array of folders.
 
-	sostatic.watch(['adm', 'static']);
+	static.watch(['adm', 'static']);
