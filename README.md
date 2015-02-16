@@ -1,4 +1,4 @@
-# sostatic
+# All-Inclusiv
 Express Middleware for Mobile Apps to be used by very lazy people
 
 
