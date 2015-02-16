@@ -1,7 +1,7 @@
 {
   "name": "express-all-inclusiv",
   "version": "1.0.0",
-  "description": "sostatic Express Middleware for lazy people",
+  "description": "Express Middleware for lazy people",
   "main": "index.js",
   "dependencies": {
     "sockjs": "^0.3.12",
