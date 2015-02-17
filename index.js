@@ -6,6 +6,7 @@ var Q = require("q"),
     uglify = require("uglify-js"),
     CleanCSS = require('clean-css'),
     ngAnnotate = require("ng-annotate"),
+    riot = require('riot'),
     minify = require('html-minifier').minify;
 
 var STATIC = {
@@ -57,6 +58,10 @@ transformer.css = function(text){
   return new CleanCSS().minify(text).styles;
 };
 
+transformer.riot = function(text){
+  return riot.compile(text)
+};
+
 transformer.html = function(text){
   var r = minify(text, {
     //removeComments: true, //does break auto-reload
@@ -74,7 +79,7 @@ transformer.reload = function(text){
   return text.replace('<!--reload-->', STATIC.reload.replace('<port>', _port));
 };
 
-function promiseReadFile(path){
+function promiseReadFile(path, reqPath){
   var deferred = Q.defer();
   fs.readFile(path, 'utf8', function (err,data) {
     if (err) {
@@ -82,6 +87,7 @@ function promiseReadFile(path){
     } else {
       deferred.resolve({
         name: path,
+        reqPath: reqPath,
         text: data
       });
     }
@@ -102,6 +108,87 @@ function Folder(name, options){
   _folders.push(name);
 }
 
+
+/**
+ * Experimental Function to merge riot.js files
+ * If you request
+ *   tags/menu.js
+ *
+ * The file will be created from the small parts
+ *   tags/menu.tag/menu.html
+ *   tags/menu.tag/menu.css
+ *   tags/menu.tag/menu.js
+ */
+Folder.prototype.riot = function(){
+  var that = this;
+  var options = arguments[arguments.length-1] || {}; 
+
+  //if options is string, default to {fileName:string}
+  if (typeof options === 'string'){
+    options = {
+      fileName: options
+    };
+  }
+
+  var f = function(req, res){
+    //res.send(req.path);
+    var pathArray = req.path.split('/');
+    var name = pathArray.pop().split('.')[0];
+
+    var basePath = path.join(__dirname, that._name, pathArray.join('/'));
+    var read = ['html', 'js', 'css'];
+    var tasks = [];
+    read.forEach(function(ending){
+      var readPath = path.join(basePath, name+'.tag', name+'.'+ending);
+      console.log('reading', readPath);
+      tasks.push(promiseReadFile(readPath));
+    })
+    
+    Q.allSettled(tasks).then(function(data){
+      if (data.length){
+        console.log('data', data);
+        var fileName, fileEnding, fileContent, css, js, html;
+        for (var i=0, ii= data.length;i<ii;i+=1){
+          if (data[i].state === 'fulfilled'){
+            fileName = data[i].value.name.split(path.sep).pop();
+            fileEnding = fileName.split('.').pop();
+            fileContent = data[i].value.text;
+            console.log('include:', fileName, fileEnding);
+
+            switch(fileEnding){
+              case 'js':
+                js = fileContent;
+                break;
+              case 'css':
+                css = fileContent;
+                break;
+              case 'html':
+                html = fileContent;
+                break;                  
+            }
+          }
+        }
+        //merge into single js file
+        var r = '<'+name+'>\n';
+        if (html) r += html;
+        if (css) r += '<style>\n' + css + '\n</style>';
+        if (js) r += '<script>\n' + js + '\n</script>';
+        r += '\n</'+name+'>';
+        try {
+          res.send(transformer.riot(r));
+        }
+        catch (err){
+          res.send(STATIC.fail(err));
+        }
+      }
+    });
+
+    //try to open related html, css and js file
+
+  };
+
+  return f;
+}
 
 
 /**
