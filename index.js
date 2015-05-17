@@ -5,6 +5,7 @@ var Q = require("q"),
     path = require('path'),
     uglify = require("uglify-js"),
     CleanCSS = require('clean-css'),
+    sass = require('node-sass'),
     ngAnnotate = require("ng-annotate"),
     riot = require('riot'),
     minify = require('html-minifier').minify;
@@ -32,7 +33,9 @@ var CONTENT_TYPES = {
 
 
 var _port = 5001,
-    sostatic = {},
+    sostatic = {
+      helper: {}
+    },
     transformer = {};
 
 /**
@@ -55,7 +58,13 @@ transformer.angular = function(text){
 };
 
 transformer.css = function(text){
-  return new CleanCSS().minify(text).styles;
+  return new CleanCSS().minify(text).styles;  
+};
+
+transformer.sass = function(text){
+  return sass.renderSync({
+      data: text
+    }).css;
 };
 
 transformer.riot = function(text){
@@ -94,7 +103,7 @@ function promiseReadFile(path, reqPath){
   });
   return deferred.promise;  
 }
-
+sostatic.helper.promiseReadFile = promiseReadFile;
 
 var _folders = []; //collect all Folder object names
 
@@ -106,6 +115,89 @@ function Folder(name, options){
   this._options = options;
   this._cache = {};
   _folders.push(name);
+}
+
+
+/**
+ * Read a splited riot tag - return a promise
+ */
+function promiseReadRiot(filePath, reqPath, isProd){
+  var deferred = Q.defer();
+
+
+  var pathArray = filePath.split('/');
+  var name = pathArray.pop().split('.')[0];
+
+
+  var basePath = path.join(pathArray.join('/'));
+  var read = ['html', 'js', 'css', 'sass'];
+  var tasks = [];
+  read.forEach(function(ending){
+    var readPath = path.join(basePath, name+'.tag', name+'.'+ending);
+    console.log('reading', readPath);
+    tasks.push(promiseReadFile(readPath));
+  })
+  
+  Q.allSettled(tasks).then(function(data){
+    if (data.length){
+      //console.log('data', data);
+      var fileName, fileEnding, fileContent, css, js, html;
+      for (var i=0, ii= data.length;i<ii;i+=1){
+        if (data[i].state === 'fulfilled'){
+          fileName = data[i].value.name.split(path.sep).pop();
+          fileEnding = fileName.split('.').pop();
+          fileContent = data[i].value.text;
+          //console.log('include:', fileName, fileEnding);
+
+          switch(fileEnding){
+            case 'js':
+              js = fileContent;
+              break;
+            case 'sass':
+              css = '/*processed*/'+transformer.sass(fileContent);      
+              if (isProd){
+                css = transformer.css(css);
+              }
+              break;
+            case 'css':        
+              css = fileContent;
+              if (isProd){
+                css = transformer.css(css);
+              }
+              break;
+            case 'html':
+              html = fileContent;
+              break;                  
+          }
+        }
+      }
+      //merge into single js file
+      var r = '<'+name+'>\n';
+      if (html) r += html;
+      if (css) r += '<style>\n' + css + '\n</style>';
+      if (js) r += '<script>\n' + js + '\n</script>';
+      r += '\n</'+name+'>';
+
+      try {
+        r = transformer.riot(r);
+      }
+      catch (err){
+        deferred.reject(err);
+      }
+
+      deferred.resolve({
+        name: path,
+        reqPath: reqPath,
+        text: r
+      });
+    }
+  });
+
+
+
+
+
+  return deferred.promise;  
 }
 
 
@@ -131,64 +223,22 @@ Folder.prototype.riot = function(){
   }
 
   var f = function(req, res){
-    //res.send(req.path);
-    var pathArray = req.path.split('/');
-    var name = pathArray.pop().split('.')[0];
 
-    var basePath = path.join(__dirname, that._name, pathArray.join('/'));
-    var read = ['html', 'js', 'css'];
-    var tasks = [];
-    read.forEach(function(ending){
-      var readPath = path.join(basePath, name+'.tag', name+'.'+ending);
-      console.log('reading', readPath);
-      tasks.push(promiseReadFile(readPath));
-    })
-    
-    Q.allSettled(tasks).then(function(data){
-      if (data.length){
-        console.log('data', data);
-        var fileName, fileEnding, fileContent, css, js, html;
-        for (var i=0, ii= data.length;i<ii;i+=1){
-          if (data[i].state === 'fulfilled'){
-            fileName = data[i].value.name.split(path.sep).pop();
-            fileEnding = fileName.split('.').pop();
-            fileContent = data[i].value.text;
-            console.log('include:', fileName, fileEnding);
+    res.setHeader('Content-Type', CONTENT_TYPES['js']);   
+    var filePath = path.join(__dirname, that._name, req.path);
+    var isProd = (req.hostname !== 'localhost') || req.param('force');
 
-            switch(fileEnding){
-              case 'js':
-                js = fileContent;
-                break;
-              case 'css':
-                css = fileContent;
-                break;
-              case 'html':
-                html = fileContent;
-                break;                  
-            }
-          }
-        }
-        //merge into single js file
-        var r = '<'+name+'>\n';
-        if (html) r += html;
-        if (css) r += '<style>\n' + css + '\n</style>';
-        if (js) r += '<script>\n' + js + '\n</script>';
-        r += '\n</'+name+'>';
-        try {
-          res.send(transformer.riot(r));
-        }
-        catch (err){
-          res.send(STATIC.fail(err));
-        }
-      }
+
+    promiseReadRiot(filePath, req.path, isProd).then(function(data){
+      res.send(data.text);
+    }).fail(function(err){
+      res.send(STATIC.fail(err));
     });
-
-    //try to open related html, css and js file
-
   };
 
   return f;
 }
+
 
 
 /**
@@ -211,7 +261,8 @@ Folder.prototype.serve = function(){
   }
 
   var f = function(req, res){
-    var fileName = options.fileName || req.path.split('/').pop() || 'index.html';
+    console.log('req.path', '"'+req.path+'"');
+    var fileName = options.fileName || req.path.substr(1) || 'index.html';
     var fileType = fileName.split('.').pop();
     if (fileName === fileType){  //default extention is html
       fileName = fileName + '.html';
@@ -219,7 +270,9 @@ Folder.prototype.serve = function(){
     }
     //# Usageconsole.log('fileName', fileName, fileType);
     var key = req.hostname + '+' + req.originalUrl; //used for cache
-    var isProd = (req.hostname !== 'localhost') || req.param('force');
+    var isProd = (req.hostname.split('.').pop() !== 'localhost') || req.param('force');
+    console.log('hostname', req.hostname);
+    var isProdForced = (req.hostname === 'localhost') && req.param('force');
     
 
     if (CONTENT_TYPES[fileType]){
@@ -238,10 +291,18 @@ Folder.prototype.serve = function(){
 
       if (fileType === 'html' || fileType === 'appcache'){
         newData = transformer.version(newData, that._options.version);
+        // force appcache
+        if (isProdForced && fileName === 'index.html') {
+          newData = newData.replace('cache.appcache', 'cache.appcache?force=true');
+        }
       }
 
       if (fileType === 'js' && isProd){
         newData = transformer.angular(newData);
+      }
+
+      if (fileType === 'css' && fileName.indexOf('sass.css') > 0){
+        newData = '/*sass*/\n' +transformer.sass(newData);
       }
 
       if (fileType === 'css' && isProd){
@@ -256,7 +317,12 @@ Folder.prototype.serve = function(){
         for (var i=0, ii= options.include.length;i<ii;i+=1){
           filePath = path.join(__dirname, that._name, options.include[i]);
           //console.log('filePath', filePath);
-          asyncTasks.push(promiseReadFile(filePath));
+          //detect riot modules:
+          if (filePath.indexOf('tags/') > -1){
+            asyncTasks.push(promiseReadRiot(filePath, options.include[i], isProd));
+          } else {
+            asyncTasks.push(promiseReadFile(filePath, options.include[i]));
+          }
         }
       }
 
@@ -267,10 +333,11 @@ Folder.prototype.serve = function(){
           var fileName, fileEnding, fileContent;
           for (var i=0, ii= data.length;i<ii;i+=1){
             if (data[i].state === 'fulfilled'){
-              fileName = data[i].value.name.split(path.sep).pop();
+              //fileName = data[i].value.name.split(path.sep).pop();
+              fileName = data[i].value.reqPath;
               fileEnding = fileName.split('.').pop();
               fileContent = data[i].value.text;
-              console.log('include:', fileName, fileEnding);
+              console.log('include:', fileName, fileEnding, data[i].value.reqPath);
 
               switch(fileEnding){
                 case 'js':
@@ -279,6 +346,9 @@ Folder.prototype.serve = function(){
                                             '<script>' + fileContent + '</script>');
                   break;
                 case 'css':
+                  if (fileName.indexOf('sass.css') > 0){
+                    fileContent = transformer.sass(fileContent);
+                  }                
                   fileContent = transformer.css(fileContent);
                   newData = newData.replace('<link href="'+fileName+'" rel="stylesheet">', 
                                             '<style>' + fileContent + '</style>');
