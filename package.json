@@ -1,17 +1,18 @@
 {
   "name": "express-all-inclusive",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Express Middleware for lazy people",
   "main": "index.js",
   "dependencies": {
-    "sockjs": "^0.3.12",
     "chokidar": "^1.0.0-rc3",
-    "ng-annotate": "^0.15.4",
-    "uglify-js": "^2.4.16",
     "clean-css": "^3.0.10",
     "html-minifier": "^0.7.0",
+    "ng-annotate": "^0.15.4",
+    "node-sass": "^3.1.1",
     "q": "^1.1.2",
-    "riot": "^2.0.9"    
+    "riot": "^2.0.9",
+    "sockjs": "^0.3.12",
+    "uglify-js": "^2.4.16"
   },
   "engines": {
     "node": "0.10.x"
