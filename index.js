@@ -108,6 +108,10 @@ function promiseReadFile(path, reqPath){
 }
 sostatic.helper.promiseReadFile = promiseReadFile;
 
+
+
+
+
 var _folders = []; //collect all Folder object names
 
 /**
@@ -118,6 +122,19 @@ function Folder(name, options){
   this._options = options;
   this._cache = {};
   _folders.push(name);
+}
+
+//if that._name is already included in path, do not use folder twice
+Folder.prototype.fixPathInCase = function(fileName){
+  if (fileName.substr(0,1) === '/'){
+    fileName = fileName.substr(1);
+  }
+
+  if (fileName.substr(0, this._name.length) === this._name){
+    return fileName.substr(this._name.length);
+  } else {
+    return fileName;
+  }
 }
 
 
@@ -133,6 +150,7 @@ function promiseReadRiot(filePath, reqPath, isProd){
 
 
   var basePath = path.join(pathArray.join('/'));
+
   var read = ['html', 'js', 'css', 'sass'];
   var tasks = [];
   read.forEach(function(ending){
@@ -227,8 +245,11 @@ Folder.prototype.riot = function(){
 
   var f = function(req, res){
 
+    var reqPath = that.fixPathInCase(req.path);
+
+
     res.setHeader('Content-Type', CONTENT_TYPES['js']);   
-    var filePath = path.join(DIRNAME, that._name, req.path);
+    var filePath = path.join(DIRNAME, that._name, reqPath);
     var isProd = (req.hostname !== 'localhost') || req.param('force');
 
 
@@ -271,6 +292,9 @@ Folder.prototype.serve = function(){
       fileName = fileName + '.html';
       fileType = 'html';
     }
+    fileName = that.fixPathInCase(fileName);
+
+
     //# Usage
     var key = req.hostname + '+' + req.originalUrl; //used for cache
     var isProd = (req.hostname.split('.').pop() !== 'localhost') || req.param('force');
@@ -288,13 +312,6 @@ Folder.prototype.serve = function(){
       res.send(that._cache[key]);
       return;
     }
-
-    //if that._name is already included in path, do not serve twice
-    if (fileName.substr(0, that._name.length) === that._name){
-      fileName = fileName.substr(that._name.length);
-    }
-    //console.log('fileName', fileName, fileType);
-
 
     promiseReadFile(path.join(DIRNAME, that._name, fileName)).then(function(data){
       var newData = data.text;
