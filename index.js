@@ -36,7 +36,10 @@ var _port = 5001,
     sostatic = {
       helper: {}
     },
-    transformer = {};
+    transformer = {},
+    DIRNAME = process.cwd();
+
+console.log('Base directory: ' + DIRNAME);
 
 /**
  * Annotates & Minifies AngularJS files
@@ -225,7 +228,7 @@ Folder.prototype.riot = function(){
   var f = function(req, res){
 
     res.setHeader('Content-Type', CONTENT_TYPES['js']);   
-    var filePath = path.join(__dirname, that._name, req.path);
+    var filePath = path.join(DIRNAME, that._name, req.path);
     var isProd = (req.hostname !== 'localhost') || req.param('force');
 
 
@@ -268,10 +271,10 @@ Folder.prototype.serve = function(){
       fileName = fileName + '.html';
       fileType = 'html';
     }
-    //# Usageconsole.log('fileName', fileName, fileType);
+    //# Usage
     var key = req.hostname + '+' + req.originalUrl; //used for cache
     var isProd = (req.hostname.split('.').pop() !== 'localhost') || req.param('force');
-    console.log('hostname', req.hostname);
+    //console.log('hostname', req.hostname);
     var isProdForced = (req.hostname === 'localhost') && req.param('force');
     
 
@@ -286,7 +289,14 @@ Folder.prototype.serve = function(){
       return;
     }
 
-    promiseReadFile(path.join(__dirname, that._name, fileName)).then(function(data){
+    //if that._name is already included in path, do not serve twice
+    if (fileName.substr(0, that._name.length) === that._name){
+      fileName = fileName.substr(that._name.length);
+    }
+    //console.log('fileName', fileName, fileType);
+
+
+    promiseReadFile(path.join(DIRNAME, that._name, fileName)).then(function(data){
       var newData = data.text;
 
       if (fileType === 'html' || fileType === 'appcache'){
@@ -315,7 +325,7 @@ Folder.prototype.serve = function(){
       //include files
       if (isProd && options.include && options.include.length){
         for (var i=0, ii= options.include.length;i<ii;i+=1){
-          filePath = path.join(__dirname, that._name, options.include[i]);
+          filePath = path.join(DIRNAME, that._name, options.include[i]);
           //console.log('filePath', filePath);
           //detect riot modules:
           if (filePath.indexOf('tags/') > -1){
