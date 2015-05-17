@@ -1,8 +1,10 @@
 # All-Inclusiv
-Express Middleware for Mobile Apps to be used by very lazy people
+Experimental Express Middleware for Mobile HTML5 Apps to be used by very lazy people. 
 
 
 #Usage
+
+*DO NOT USE IT YET* 
 
 Install module
 
