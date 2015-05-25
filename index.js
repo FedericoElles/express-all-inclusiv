@@ -342,7 +342,8 @@ Folder.prototype.serve = function(){
       //include files
       if (isProd && options.include && options.include.length){
         for (var i=0, ii= options.include.length;i<ii;i+=1){
-          filePath = path.join(DIRNAME, that._name, options.include[i]);
+
+          filePath = path.join(DIRNAME, that._name, that.fixPathInCase(options.include[i]));
           //console.log('filePath', filePath);
           //detect riot modules:
           if (filePath.indexOf('tags/') > -1){
@@ -480,3 +481,4 @@ sostatic.watch = function(port, folders){
 
 
 module.exports = sostatic;
+
